@@ -47,6 +47,9 @@ Open the local URL Vite prints (usually http://localhost:5173).
 
 ## Screenshots
 
+### Connect Wallet
+![Wallet Connection Button](wallet-connection-button.png)
+
 ### Wallet Connected & Balance
 ![Wallet Connected and Balance](wallet-connected.png)
 
