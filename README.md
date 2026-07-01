@@ -44,3 +44,11 @@ Open the local URL Vite prints (usually http://localhost:5173).
 ## Notes
 - This app only works on **Stellar Testnet**. Do not send real (mainnet) XLM to it.
 - All signing happens in Freighter — this app never touches your secret key.
+
+## Screenshots
+
+### Wallet Connected & Balance
+![Wallet Connected and Balance](wallet-connected.png)
+
+### Successful Testnet Transaction
+![Successful Testnet Transaction](transaction-completed.png)
