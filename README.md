@@ -50,5 +50,5 @@ Open the local URL Vite prints (usually http://localhost:5173).
 ### Wallet Connected & Balance
 ![Wallet Connected and Balance](wallet-connected.png)
 
-### Successful Testnet Transaction
+### Successful Testnet Transaction & Result is shown
 ![Successful Testnet Transaction](transaction-completed.png)
