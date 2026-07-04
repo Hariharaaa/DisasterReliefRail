@@ -88,7 +88,7 @@ export default function TransactionModal({ txStage, txError, txHash, onClose }) 
             className="btn" 
             id="btn-close-modal"
             onClick={onClose}
-            style={{ background: 'rgba(255,255,255,0.06)', color: 'white', border: '1px solid var(--border-muted)', marginTop: '2rem' }}
+            style={{ background: 'var(--c-black)', color: 'var(--c-white)', border: 'var(--border-width) solid var(--border-color)', marginTop: '2rem' }}
           >
             Close Panel
           </button>
