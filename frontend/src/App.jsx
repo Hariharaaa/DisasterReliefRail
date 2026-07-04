@@ -437,7 +437,7 @@ export default function App() {
                         className="form-input"
                         value={disburseRecipient}
                         onChange={(e) => setDisburseRecipient(e.target.value)}
-                        style={{ background: 'rgba(0, 0, 0, 0.4)', cursor: 'pointer' }}
+                        style={{ cursor: 'pointer' }}
                       >
                         <option value="" disabled>-- Select a registered recipient --</option>
                         {recipients.map((r, i) => {
@@ -517,13 +517,13 @@ export default function App() {
                       </div>
 
                       {/* Cap Progress Bar */}
-                      <div style={{ marginTop: '4px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.725rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                      <div className="progress-wrapper">
+                        <div className="progress-labels">
                           <span>Disbursed: {receivedXlm.toFixed(2)} / {MAX_DISBURSEMENT_CAP} XLM</span>
                           <span>{capPercentage.toFixed(0)}%</span>
                         </div>
-                        <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.06)', borderRadius: '99px', overflow: 'hidden' }}>
-                          <div style={{ width: `${capPercentage}%`, height: '100%', background: capPercentage >= 100 ? 'var(--error)' : 'var(--primary)', borderRadius: '99px', transition: 'width 0.4s ease' }} />
+                        <div className="progress-container">
+                          <div className="progress-bar-fill" style={{ width: `${capPercentage}%` }} />
                         </div>
                       </div>
                     </div>
