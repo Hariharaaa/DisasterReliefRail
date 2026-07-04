@@ -208,25 +208,20 @@ export async function getRecipientInfo(recipientAddress) {
 }
 
 /**
- * Aggregated helper to fetch all recipients with details
+ * Aggregated helper to fetch all recipients with details in a single RPC call
  */
 export async function getRecipients() {
   try {
-    const addresses = await getRecipientList()
-    const list = []
-    for (const addr of addresses) {
-      const info = await getRecipientInfo(addr)
-      if (info) {
-        list.push({
-          recipient: addr,
-          region: info.region,
-          verificationId: info.verificationId,
-          totalReceived: info.totalReceived,
-          verified: info.verified
-        })
-      }
-    }
-    return list
+    const sim = await simulateContractCall(REGISTRY_CONTRACT_ID, 'get_all_recipients', [])
+    const val = sim.result?.retval
+    if (!val) return []
+    return scValToNative(val).map(r => ({
+      recipient: r.address,
+      region: r.region,
+      verificationId: r.verification_id,
+      totalReceived: BigInt(r.total_received),
+      verified: r.verified
+    }))
   } catch (e) {
     console.error('getRecipients error:', e)
     return []

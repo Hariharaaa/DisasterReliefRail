@@ -26,6 +26,16 @@ pub struct RecipientRecord {
     pub verified: bool,
 }
 
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct RecipientDetail {
+    pub address: Address,
+    pub region: String,
+    pub verification_id: String,
+    pub total_received: i128,
+    pub verified: bool,
+}
+
 // ── Contract Implementation ───────────────────────────────────────────────────
 
 #[contract]
@@ -140,6 +150,25 @@ impl RecipientRegistryContract {
     /// Get list of all registered recipients
     pub fn get_recipient_list(env: Env) -> Vec<Address> {
         env.storage().instance().get(&DataKey::RecipientList).unwrap_or_else(|| Vec::new(&env))
+    }
+
+    /// Get list of all registered recipients with details in a single call (reduces RPC overhead)
+    pub fn get_all_recipients(env: Env) -> Vec<RecipientDetail> {
+        let list = Self::get_recipient_list(env.clone());
+        let mut details: Vec<RecipientDetail> = Vec::new(&env);
+        for addr in list.iter() {
+            let key = DataKey::Recipient(addr.clone());
+            if let Some(record) = env.storage().instance().get::<_, RecipientRecord>(&key) {
+                details.push_back(RecipientDetail {
+                    address: addr,
+                    region: record.region,
+                    verification_id: record.verification_id,
+                    total_received: record.total_received,
+                    verified: record.verified,
+                });
+            }
+        }
+        details
     }
 }
 
