@@ -553,7 +553,7 @@ export default function App() {
                   return (
                     <a 
                       key={i} 
-                      href={`${STELLAR_EXPERT_URL}/contract/${h.recipient}`} 
+                      href={`${STELLAR_EXPERT_URL}/account/${h.recipient}`} 
                       target="_blank" 
                       rel="noopener noreferrer" 
                       className="history-item"
