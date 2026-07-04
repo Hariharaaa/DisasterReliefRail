@@ -228,7 +228,6 @@ export default function App() {
             <h1 className="brand-title">Disaster Relief Rail</h1>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Direct, Transparent Aid Disbursement</p>
           </div>
-          <span className="brand-tag">Level 2</span>
         </div>
 
         <div>
