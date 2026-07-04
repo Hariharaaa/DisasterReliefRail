@@ -8,9 +8,10 @@ import {
   donate,
   registerRecipient,
   disburse,
-  formatXlm
+  formatXlm,
+  stroopsToXlm
 } from './stellar'
-import { ADMIN_ADDRESS, STELLAR_EXPERT_URL } from './config'
+import { ADMIN_ADDRESS, STELLAR_EXPERT_URL, MAX_DISBURSEMENT_CAP } from './config'
 import {
   Heart,
   History,
@@ -24,7 +25,10 @@ import {
   Coins,
   CheckCircle,
   AlertTriangle,
-  Users
+  Users,
+  Shield,
+  MapPin,
+  FileText
 } from 'lucide-react'
 
 export default function App() {
@@ -42,8 +46,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('donor')
 
   // Balances
-  const [walletBalance, setWalletBalance] = useState('0.00')
-  const [fundBalance, setFundBalance] = useState('0.00')
+  const [walletBalance, setWalletBalance] = useState('0.0000')
+  const [fundBalance, setFundBalance] = useState('0.0000')
 
   // Lists
   const [recipients, setRecipients] = useState([])
@@ -52,7 +56,8 @@ export default function App() {
   // Form Inputs
   const [donateAmount, setDonateAmount] = useState('')
   const [newRecipientAddr, setNewRecipientAddr] = useState('')
-  const [newRecipientName, setNewRecipientName] = useState('')
+  const [newRecipientRegion, setNewRecipientRegion] = useState('')
+  const [newRecipientVerifyId, setNewRecipientVerifyId] = useState('')
   const [disburseRecipient, setDisburseRecipient] = useState('')
   const [disburseAmount, setDisburseAmount] = useState('')
 
@@ -63,22 +68,26 @@ export default function App() {
 
   // Fetch all on-chain data
   const refreshData = useCallback(async () => {
-    // 1. Contract Balance
-    const fBalance = await getFundBalance()
-    setFundBalance(formatXlm(fBalance, 4))
+    try {
+      // 1. Contract Balance
+      const fBalance = await getFundBalance()
+      setFundBalance(formatXlm(fBalance, 4))
 
-    // 2. Recipients
-    const rList = await getRecipients()
-    setRecipients(rList)
+      // 2. Recipients Details (includes region, verificationId, totalReceived, verified)
+      const rList = await getRecipients()
+      setRecipients(rList)
 
-    // 3. Disbursement History
-    const hList = await getDisbursementHistory()
-    setHistory(hList)
+      // 3. Disbursement History
+      const hList = await getDisbursementHistory()
+      setHistory(hList)
 
-    // 4. Wallet Balance (if connected)
-    if (address) {
-      const wBalance = await getWalletBalance(address)
-      setWalletBalance(Number(wBalance).toFixed(4))
+      // 4. Wallet Balance (if connected)
+      if (address) {
+        const wBalance = await getWalletBalance(address)
+        setWalletBalance(Number(wBalance).toFixed(4))
+      }
+    } catch (e) {
+      console.error('Data refresh error:', e)
     }
   }, [address])
 
@@ -93,7 +102,8 @@ export default function App() {
   const clearInputs = () => {
     setDonateAmount('')
     setNewRecipientAddr('')
-    setNewRecipientName('')
+    setNewRecipientRegion('')
+    setNewRecipientVerifyId('')
     setDisburseRecipient('')
     setDisburseAmount('')
   }
@@ -108,7 +118,7 @@ export default function App() {
     setTxStage('Preparing')
 
     try {
-      // 1. Gas/Balance pre-check: Check if donor's wallet has enough XLM
+      // Gas/Balance pre-check: Check if donor's wallet has enough XLM
       const wBal = await getWalletBalance(address)
       if (Number(wBal) < Number(donateAmount)) {
         throw Object.assign(new Error('Your wallet has insufficient balance to cover this donation.'), { code: 'INSUFFICIENT_BALANCE' })
@@ -147,7 +157,8 @@ export default function App() {
       await registerRecipient({
         adminAddress: address,
         recipientAddress: newRecipientAddr,
-        nameOrId: newRecipientName,
+        region: newRecipientRegion,
+        verificationId: newRecipientVerifyId,
         signTransaction,
         onStatus: ({ stage, hash }) => {
           setTxStage(stage)
@@ -180,6 +191,15 @@ export default function App() {
       const fBalanceXlm = Number(fBalance) / 10_000_000
       if (fBalanceXlm < Number(disburseAmount)) {
         throw Object.assign(new Error('The Relief Fund does not have enough balance to fulfill this disbursement.'), { code: 'INSUFFICIENT_FUND_BALANCE' })
+      }
+
+      // 2. Pre-check: Verify max cap of selected recipient is not exceeded
+      const target = recipients.find(r => r.recipient === disburseRecipient)
+      if (target) {
+        const totalReceivedXlm = Number(target.totalReceived) / 10_000_000
+        if (totalReceivedXlm + Number(disburseAmount) > MAX_DISBURSEMENT_CAP) {
+          throw Object.assign(new Error(`Disbursement cap exceeded. The maximum cap per recipient is ${MAX_DISBURSEMENT_CAP} XLM. Selected recipient already received ${totalReceivedXlm} XLM.`), { code: 'CAP_EXCEEDED' })
+        }
       }
 
       await disburse({
@@ -260,7 +280,7 @@ export default function App() {
       {/* DASHBOARD GRID */}
       <div className="dashboard-grid">
         {/* LEFT COLUMN: INTERACTION PANELS */}
-        <main className="left-column" style={{ display: 'flex', flex2: 1.2, flexDirection: 'column', gap: '2rem' }}>
+        <main className="left-column" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           
           {/* AVAILABLE FUNDS DISPLAY */}
           <section className="card funds-display">
@@ -270,10 +290,10 @@ export default function App() {
             </p>
             <div className="funds-info">
               <RefreshCw size={14} className="spin-on-update" />
-              <span>Synced live with Soroban Testnet ReliefFund Contract</span>
+              <span>Synced live with Soroban Testnet smart contract</span>
             </div>
             {address && (
-              <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                 <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Available Relief Funds (Your Wallet Balance):</span>
                 <strong style={{ fontFamily: 'var(--font-display)', color: 'white', fontSize: '1.1rem' }}>{walletBalance} XLM</strong>
               </div>
@@ -301,7 +321,7 @@ export default function App() {
           {/* DONOR TAB VIEW */}
           {activeTab === 'donor' && (
             <section className="card">
-              <h3 className="card-title"><Heart size={20} className="accent-color" style={{ color: 'var(--primary)' }} /> Make a Direct Donation</h3>
+              <h3 className="card-title"><Heart size={20} style={{ color: 'var(--primary)' }} /> Make a Direct Donation</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
                 Donated funds flow securely into the transparent Soroban contract, ready to be disbursed directly to registered aid recipients without middlemen.
               </p>
@@ -355,7 +375,7 @@ export default function App() {
               <section className="card">
                 <h3 className="card-title"><UserPlus size={20} style={{ color: 'var(--primary)' }} /> Register Verified Recipient</h3>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                  Register verified recipient wallet addresses to make them eligible for relief payouts. Only the Admin can invoke this.
+                  Register verified recipient wallet addresses and regions to make them eligible for relief payouts. Only the Admin can invoke this.
                 </p>
 
                 {!address ? (
@@ -377,16 +397,29 @@ export default function App() {
                         onChange={(e) => setNewRecipientAddr(e.target.value)}
                       />
                     </div>
-                    <div className="form-group">
-                      <label className="form-label">Recipient ID or Name (Publicly Auditable)</label>
-                      <input 
-                        type="text" 
-                        required
-                        placeholder="e.g. Recipient-087 / Alice" 
-                        className="form-input"
-                        value={newRecipientName}
-                        onChange={(e) => setNewRecipientName(e.target.value)}
-                      />
+                    <div className="form-group-split">
+                      <div>
+                        <label className="form-label">Recipient Region</label>
+                        <input 
+                          type="text" 
+                          required
+                          placeholder="e.g. Region-North" 
+                          className="form-input"
+                          value={newRecipientRegion}
+                          onChange={(e) => setNewRecipientRegion(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="form-label">Verification ID / Name</label>
+                        <input 
+                          type="text" 
+                          required
+                          placeholder="e.g. ID-892A" 
+                          className="form-input"
+                          value={newRecipientVerifyId}
+                          onChange={(e) => setNewRecipientVerifyId(e.target.value)}
+                        />
+                      </div>
                     </div>
                     <button type="submit" className="btn btn-primary" disabled={!isAdmin}>
                       <span>Register Recipient</span>
@@ -400,7 +433,7 @@ export default function App() {
               <section className="card">
                 <h3 className="card-title"><Coins size={20} style={{ color: 'var(--primary)' }} /> Disburse Aid to Recipient</h3>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                  Distribute funds directly from the smart contract to a registered recipient. Requires sufficient contract balance.
+                  Distribute funds directly from the Relief Fund. This will invoke inter-contract calls to verify eligibility and enforce the cap of **{MAX_DISBURSEMENT_CAP} XLM**.
                 </p>
 
                 {!address ? (
@@ -420,11 +453,15 @@ export default function App() {
                         style={{ background: 'rgba(0, 0, 0, 0.4)', cursor: 'pointer' }}
                       >
                         <option value="" disabled>-- Select a registered recipient --</option>
-                        {recipients.map((r, i) => (
-                          <option key={i} value={r.recipient}>
-                            {r.nameOrId} ({r.recipient.slice(0, 6)}...{r.recipient.slice(-4)})
-                          </option>
-                        ))}
+                        {recipients.map((r, i) => {
+                          const receivedXlm = Number(r.totalReceived) / 10_000_000
+                          const remainingXlm = MAX_DISBURSEMENT_CAP - receivedXlm
+                          return (
+                            <option key={i} value={r.recipient}>
+                              {r.verificationId} — {r.region} (Spent: {receivedXlm.toFixed(1)}/{MAX_DISBURSEMENT_CAP} XLM)
+                            </option>
+                          )
+                        })}
                       </select>
                     </div>
                     <div className="form-group">
@@ -452,11 +489,11 @@ export default function App() {
         </main>
 
         {/* RIGHT COLUMN: HISTORY FEED & AUDIT TRAIL */}
-        <aside className="right-column" style={{ display: 'flex', flex2: 0.8, flexDirection: 'column', gap: '2rem' }}>
+        <aside className="right-column" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           
           {/* VERIFIED RECIPIENTS PANEL */}
           <section className="card">
-            <h3 className="card-title"><Users size={18} style={{ color: 'var(--primary)' }} /> Verified Recipients</h3>
+            <h3 className="card-title"><Users size={18} style={{ color: 'var(--primary)' }} /> Verified Recipient Registry</h3>
             {recipients.length === 0 ? (
               <div className="empty-placeholder" style={{ padding: '2rem 1rem' }}>
                 <Users className="empty-icon" style={{ width: '2rem', height: '2rem' }} />
@@ -464,17 +501,48 @@ export default function App() {
               </div>
             ) : (
               <div className="recipients-list">
-                {recipients.map((r, i) => (
-                  <div key={i} className="recipient-item">
-                    <div className="item-left">
-                      <span className="item-title">{r.nameOrId}</span>
-                      <span className="item-subtitle">{r.recipient}</span>
+                {recipients.map((r, i) => {
+                  const receivedXlm = Number(r.totalReceived) / 10_000_000
+                  const capPercentage = Math.min((receivedXlm / MAX_DISBURSEMENT_CAP) * 100, 100)
+
+                  return (
+                    <div key={i} className="recipient-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <div className="item-left">
+                          <span className="item-title" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Shield size={14} style={{ color: 'var(--primary)' }} />
+                            {r.verificationId}
+                          </span>
+                          <span className="item-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <MapPin size={12} />
+                            {r.region}
+                          </span>
+                        </div>
+                        <div className="item-right">
+                          <span className="brand-tag" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem', background: 'rgba(16, 185, 129, 0.15)', color: 'var(--primary)' }}>
+                            Verified
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Recipient Address */}
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.725rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {r.recipient}
+                      </div>
+
+                      {/* Cap Progress Bar */}
+                      <div style={{ marginTop: '4px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.725rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                          <span>Disbursed: {receivedXlm.toFixed(2)} / {MAX_DISBURSEMENT_CAP} XLM</span>
+                          <span>{capPercentage.toFixed(0)}%</span>
+                        </div>
+                        <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.06)', borderRadius: '99px', overflow: 'hidden' }}>
+                          <div style={{ width: `${capPercentage}%`, height: '100%', background: capPercentage >= 100 ? 'var(--error)' : 'var(--primary)', borderRadius: '99px', transition: 'width 0.4s ease' }} />
+                        </div>
+                      </div>
                     </div>
-                    <div className="item-right">
-                      <span className="brand-tag" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>Verified</span>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </section>
@@ -495,7 +563,7 @@ export default function App() {
               <div className="history-list">
                 {history.map((h, i) => {
                   const recipientInfo = recipients.find(r => r.recipient === h.recipient)
-                  const displayName = recipientInfo ? recipientInfo.nameOrId : 'Registered Recipient'
+                  const displayName = recipientInfo ? recipientInfo.verificationId : 'Recipient'
                   return (
                     <a 
                       key={i} 
@@ -505,11 +573,14 @@ export default function App() {
                       className="history-item"
                     >
                       <div className="item-left">
-                        <span className="item-title">{displayName}</span>
+                        <span className="item-title" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <FileText size={14} style={{ color: 'var(--accent)' }} />
+                          {displayName}
+                        </span>
                         <span className="item-subtitle">{h.recipient.slice(0, 10)}...{h.recipient.slice(-10)}</span>
                       </div>
                       <div className="item-right">
-                        <span className="amount-display negative">
+                        <span className="amount-display negative" style={{ color: 'var(--accent)' }}>
                           -{formatXlm(h.amount, 2)} XLM
                         </span>
                         <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '2px' }}>
@@ -537,7 +608,7 @@ export default function App() {
               <div className="tx-spinner" />
             )}
 
-            <h3 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+            <h3 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }} id="tx-modal-title">
               {txStage === 'Success' 
                 ? 'Transaction Success!' 
                 : txStage === 'Failed' 
@@ -545,7 +616,7 @@ export default function App() {
                   : 'Processing Transaction'}
             </h3>
             
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }} id="tx-modal-description">
               {txStage === 'Preparing' && 'Generating and simulating contract operation...'}
               {txStage === 'Signing' && 'Awaiting transaction signature in your wallet...'}
               {txStage === 'Submitting' && 'Broadcasting transaction to Stellar nodes...'}
@@ -597,6 +668,7 @@ export default function App() {
             {(txStage === 'Success' || txStage === 'Failed') && (
               <button 
                 className="btn" 
+                id="btn-close-modal"
                 onClick={() => { setTxStage(null); setTxError(null); setTxHash(null); }}
                 style={{ background: 'rgba(255,255,255,0.06)', color: 'white', border: '1px solid var(--border-muted)', marginTop: '2rem' }}
               >

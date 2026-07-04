@@ -1,5 +1,5 @@
 import * as StellarSdk from '@stellar/stellar-sdk'
-import { NETWORK, CONTRACT_ID, XLM_CONTRACT_ID } from './config'
+import { NETWORK, FUND_CONTRACT_ID, REGISTRY_CONTRACT_ID } from './config'
 
 const { rpc, Contract, TransactionBuilder, nativeToScVal, scValToNative } = StellarSdk
 
@@ -12,23 +12,22 @@ export async function getWalletBalance(address) {
   try {
     const res = await fetch(`${NETWORK.horizonUrl}/accounts/${address}`)
     if (!res.ok) {
-      if (res.status === 404) return '0.0000000'
+      if (res.status === 404) return '0.0000'
       throw new Error(`Horizon error: ${res.statusText}`)
     }
     const data = await res.json()
     const native = data.balances.find(b => b.asset_type === 'native')
-    return native ? native.balance : '0.0000000'
+    return native ? native.balance : '0.0000'
   } catch (e) {
     console.error('Error fetching wallet balance:', e)
-    return '0.0000000'
+    return '0.0000'
   }
 }
 
 /**
  * Simulate a contract call and return the result value.
  */
-export async function simulateContractCall(method, args = []) {
-  // Use a generic public key for simulation
+export async function simulateContractCall(contractId, method, args = []) {
   const dummyAddress = 'GDYY6I6B64HD6JSK2SB72LQOL26ILWDPS4GAW66KE6TGJUUYDHCODGH5'
   const account = await rpcServer.getAccount(dummyAddress)
     .catch(() => ({
@@ -37,7 +36,7 @@ export async function simulateContractCall(method, args = []) {
       incrementSequenceNumber: () => {}
     }))
 
-  const contract = new Contract(CONTRACT_ID)
+  const contract = new Contract(contractId)
   const tx = new TransactionBuilder(account, {
     fee: '100',
     networkPassphrase: NETWORK.networkPassphrase,
@@ -56,7 +55,7 @@ export async function simulateContractCall(method, args = []) {
 /**
  * Build, simulate, sign, and submit a contract invocation.
  */
-export async function invokeContract({ method, args = [], sourceAddress, signTransaction, onStatus }) {
+export async function invokeContract({ contractId, method, args = [], sourceAddress, signTransaction, onStatus }) {
   onStatus?.({ stage: 'Preparing' })
 
   // Get source account
@@ -70,7 +69,7 @@ export async function invokeContract({ method, args = [], sourceAddress, signTra
     throw Object.assign(new Error('Network error: ' + e.message), { code: 'NETWORK_ERROR' })
   }
 
-  const contract = new Contract(CONTRACT_ID)
+  const contract = new Contract(contractId)
   const tx = new TransactionBuilder(account, {
     fee: '1000',
     networkPassphrase: NETWORK.networkPassphrase,
@@ -97,11 +96,14 @@ export async function invokeContract({ method, args = [], sourceAddress, signTra
     if (errMsg.includes('not authorized: not the admin')) {
       throw Object.assign(new Error('Authorization failed: Only the Admin organization can perform this action.'), { code: 'NOT_AUTHORIZED' })
     }
-    if (errMsg.includes('recipient is not registered')) {
-      throw Object.assign(new Error('Disbursement failed: Recipient is not registered.'), { code: 'NOT_REGISTERED' })
+    if (errMsg.includes('recipient is not registered') || errMsg.includes('recipient is not eligible')) {
+      throw Object.assign(new Error('Disbursement failed: Recipient is not eligible or not registered.'), { code: 'NOT_ELIGIBLE' })
+    }
+    if (errMsg.includes('disbursement cap exceeded')) {
+      throw Object.assign(new Error('Disbursement failed: Cumulative payout exceeds the maximum cap per recipient.'), { code: 'CAP_EXCEEDED' })
     }
     if (errMsg.includes('insufficient fund balance')) {
-      throw Object.assign(new Error('Disbursement failed: Insufficient Relief Fund balance.'), { code: 'INSUFFICIENT_FUND_BALANCE' })
+      throw Object.assign(new Error('Disbursement failed: Insufficient Relief Fund contract balance.'), { code: 'INSUFFICIENT_FUND_BALANCE' })
     }
     if (errMsg.includes('donation amount must be positive') || errMsg.includes('disbursement amount must be positive')) {
       throw Object.assign(new Error('Amount must be greater than zero.'), { code: 'INVALID_AMOUNT' })
@@ -166,14 +168,79 @@ async function pollTransaction(hash, onStatus, maxAttempts = 30, intervalMs = 20
   throw Object.assign(new Error('Transaction confirmation timed out after ' + maxAttempts + ' attempts'), { code: 'TIMEOUT' })
 }
 
-// ── Contract Read Operations ──────────────────────────────────────────────────
+// ── Recipient Registry Read Operations ────────────────────────────────────────
+
+/**
+ * Get recipient list from Registry
+ */
+export async function getRecipientList() {
+  try {
+    const sim = await simulateContractCall(REGISTRY_CONTRACT_ID, 'get_recipient_list', [])
+    const val = sim.result?.retval
+    if (!val) return []
+    return scValToNative(val)
+  } catch (e) {
+    console.error('getRecipientList error:', e)
+    return []
+  }
+}
+
+/**
+ * Get recipient info from Registry
+ */
+export async function getRecipientInfo(recipientAddress) {
+  try {
+    const args = [nativeToScVal(recipientAddress, { type: 'address' })]
+    const sim = await simulateContractCall(REGISTRY_CONTRACT_ID, 'get_recipient_info', args)
+    const val = sim.result?.retval
+    if (!val) return null
+    const raw = scValToNative(val)
+    return {
+      region: raw.region,
+      verificationId: raw.verification_id,
+      totalReceived: BigInt(raw.total_received),
+      verified: raw.verified
+    }
+  } catch (e) {
+    console.error('getRecipientInfo error:', e)
+    return null
+  }
+}
+
+/**
+ * Aggregated helper to fetch all recipients with details
+ */
+export async function getRecipients() {
+  try {
+    const addresses = await getRecipientList()
+    const list = []
+    for (const addr of addresses) {
+      const info = await getRecipientInfo(addr)
+      if (info) {
+        list.push({
+          recipient: addr,
+          region: info.region,
+          verificationId: info.verificationId,
+          totalReceived: info.totalReceived,
+          verified: info.verified
+        })
+      }
+    }
+    return list
+  } catch (e) {
+    console.error('getRecipients error:', e)
+    return []
+  }
+}
+
+// ── Relief Fund Read Operations ──────────────────────────────────────────────
 
 /**
  * Fetch total fund balance (in stroops, as BigInt)
  */
 export async function getFundBalance() {
   try {
-    const sim = await simulateContractCall('get_fund_balance', [])
+    const sim = await simulateContractCall(FUND_CONTRACT_ID, 'get_fund_balance', [])
     const val = sim.result?.retval
     if (!val) return 0n
     return BigInt(scValToNative(val))
@@ -184,29 +251,11 @@ export async function getFundBalance() {
 }
 
 /**
- * Fetch registered recipients list
- */
-export async function getRecipients() {
-  try {
-    const sim = await simulateContractCall('get_recipients', [])
-    const val = sim.result?.retval
-    if (!val) return []
-    return scValToNative(val).map(r => ({
-      recipient: r.recipient,
-      nameOrId: r.name_or_id
-    }))
-  } catch (e) {
-    console.error('getRecipients error:', e)
-    return []
-  }
-}
-
-/**
- * Fetch disbursement history
+ * Fetch disbursement history from Fund
  */
 export async function getDisbursementHistory() {
   try {
-    const sim = await simulateContractCall('get_disbursement_history', [])
+    const sim = await simulateContractCall(FUND_CONTRACT_ID, 'get_disbursement_history', [])
     const val = sim.result?.retval
     if (!val) return []
     return scValToNative(val).map(d => ({
@@ -227,6 +276,7 @@ export async function getDisbursementHistory() {
 export async function donate({ donorAddress, amountXlm, signTransaction, onStatus }) {
   const amountStroops = xlmToStroops(amountXlm)
   return invokeContract({
+    contractId: FUND_CONTRACT_ID,
     method: 'donate',
     args: [
       nativeToScVal(donorAddress, { type: 'address' }),
@@ -239,15 +289,17 @@ export async function donate({ donorAddress, amountXlm, signTransaction, onStatu
 }
 
 /**
- * Register a verified recipient
+ * Register a verified recipient in Registry
  */
-export async function registerRecipient({ adminAddress, recipientAddress, nameOrId, signTransaction, onStatus }) {
+export async function registerRecipient({ adminAddress, recipientAddress, region, verificationId, signTransaction, onStatus }) {
   return invokeContract({
+    contractId: REGISTRY_CONTRACT_ID,
     method: 'register_recipient',
     args: [
       nativeToScVal(adminAddress, { type: 'address' }),
       nativeToScVal(recipientAddress, { type: 'address' }),
-      nativeToScVal(nameOrId, { type: 'string' }),
+      nativeToScVal(region, { type: 'string' }),
+      nativeToScVal(verificationId, { type: 'string' }),
     ],
     sourceAddress: adminAddress,
     signTransaction,
@@ -256,11 +308,12 @@ export async function registerRecipient({ adminAddress, recipientAddress, nameOr
 }
 
 /**
- * Disburse funds to a recipient
+ * Disburse funds from Relief Fund (Contract A will cross-call Contract B)
  */
 export async function disburse({ adminAddress, recipientAddress, amountXlm, signTransaction, onStatus }) {
   const amountStroops = xlmToStroops(amountXlm)
   return invokeContract({
+    contractId: FUND_CONTRACT_ID,
     method: 'disburse',
     args: [
       nativeToScVal(adminAddress, { type: 'address' }),
