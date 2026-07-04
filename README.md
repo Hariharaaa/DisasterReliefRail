@@ -115,7 +115,7 @@ The UI is built to handle and display error states gracefully. Here is how to tr
 ## 📸 Screenshots
 
 ### 1. Available Wallets Connection Modal (Freighter & xBull)
-![Available Wallets](wallet-connection-button.png)
+![Available Wallets](disaster_relief_modal.png)
 
 ### 2. Wallet Connected & Balance Dashboard View
-![Wallet Connected and Balance](wallet-connected.png)
+![Wallet Connected and Balance](disaster_relief_dashboard.png)
