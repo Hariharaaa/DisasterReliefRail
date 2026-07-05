@@ -1,4 +1,4 @@
-# 🚄 Disaster Relief Rail — Level 3 Production Aid dApp
+# 🚄 Disaster Relief Rail 
 
 Disaster Relief Rail is a direct, transparent aid disbursement dApp built on the **Stellar Soroban testnet**. It enables relief organizations to pool donor contributions in a transparent smart contract and disburse aid directly to verified recipient wallets, providing public cryptographic auditability.
 
