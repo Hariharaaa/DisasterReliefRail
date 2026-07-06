@@ -1,181 +1,295 @@
-# 🚄 Disaster Relief Rail 
+# 🚄 Disaster Relief Rail — Level 4 Production-MVP
 
-Disaster Relief Rail is a direct, transparent aid disbursement dApp built on the **Stellar Soroban testnet**. It enables relief organizations to pool donor contributions in a transparent smart contract and disburse aid directly to verified recipient wallets, providing public cryptographic auditability.
+Disaster Relief Rail is a direct, transparent aid disbursement dApp built on the **Stellar Soroban testnet**. It enables relief organizations to pool donor contributions in a transparent smart contract and disburse aid directly to verified recipient wallets — with full public cryptographic auditability, real-time analytics, error monitoring, and a first-class mobile experience.
 
 ---
 
 ## 🌍 The Vision & Mission
 
-Traditional disaster relief is often plagued by high administrative overhead, delays, and a lack of visibility, meaning donor funds can disappear into opaque accounts before reaching victims. 
+Traditional disaster relief is often plagued by high administrative overhead, delays, and opacity. **Disaster Relief Rail** solves this with a direct line between donors, organizations, and recipients:
 
-**Disaster Relief Rail** solves this by establishing a direct line between donors, organizations, and recipients. By utilizing a Soroban smart contract as the custody engine, aid disbursements are:
-1. **Direct**: Bypasses banking intermediaries and middlemen.
-2. **Transparent**: Every donation, recipient registration, and disbursement is recorded on-chain.
-3. **Auditable**: A public feed of disbursements allows anyone to verify that aid funds reached verified victims.
-
----
-
-## 🧬 Architectural Evolution (Level 1 to Level 3)
-
-- **Level 1 (Direct Payments)**: A basic wallet-to-wallet payment interface where the relief organization connected their wallet and made direct payments to victims. This proved the feasibility of direct aid but lacked pooling mechanics and structured recipient auditing.
-- **Level 2 (Contract-Managed Fund)**: Introduced a single `ReliefFund` smart contract. Donors deposited funds directly into the contract. The organization's admin registered verified recipient wallets and authorized disbursements from the pooled contract funds, emitting on-chain events for public transparency.
-- **Level 3 (Modular Production System)**: Splits responsibilities across two independent smart contracts (`ReliefFund` and `RecipientRegistry`) that call each other. This separates financial custody from recipient metadata and verification logic.
+1. **Direct** — Bypasses banking intermediaries and middlemen.
+2. **Transparent** — Every donation, registration, and disbursement is recorded on-chain.
+3. **Auditable** — Anyone can verify aid reached verified victims via the public history feed.
 
 ---
 
-## 📐 Advanced Smart Contract Architecture
+## 🧬 Architectural Evolution (Level 1 → Level 4)
 
-The system utilizes two smart contracts communicating via **inter-contract calls** on Soroban:
+| Level | What Changed |
+|-------|-------------|
+| **L1** | Basic wallet-to-wallet payment interface |
+| **L2** | Single `ReliefFund` smart contract with pooling |
+| **L3** | Two contracts (`ReliefFund` + `RecipientRegistry`) with inter-contract calls |
+| **L4** | Production-MVP: hardened contracts, skeleton loaders, onboarding, feedback, analytics, error tracking, full mobile responsiveness |
+
+---
+
+## 📐 Smart Contract Architecture
+
+Two contracts communicate via **inter-contract calls** on Soroban:
 
 ### 1. RecipientRegistry Contract (Contract B)
-*   **Role**: Manages recipient metadata and verification registry.
-*   **Storage**: Tracks region, verification ID, status, and cumulative received amount per address.
-*   **Enforcement**: Restricts registration to the authorized Admin and enforces a global **maximum disbursement cap** (e.g. 500 XLM) per recipient to prevent double-dipping.
+- Manages recipient metadata and verification registry
+- Enforces a global **500 XLM max disbursement cap** per recipient
+- Uses typed `#[contracterror]` enum for machine-readable error codes
 
 ### 2. ReliefFund Contract (Contract A)
-*   **Role**: Manages donor deposits and financial aid custody.
-*   **Inter-contract Call**: On `disburse()`, the ReliefFund contract calls `RecipientRegistry` to:
-    1. Confirm the recipient is registered and verified (`is_eligible`).
-    2. Record the payout and check that the disbursement doesn't exceed the recipient's cap (`mark_disbursed`).
-
-### Inter-Contract Communication Flow Diagram
+- Manages donor deposits and financial aid custody
+- On `disburse()`, cross-calls RecipientRegistry to confirm eligibility and record the payout
 
 ```mermaid
 sequenceDiagram
   autonumber
-  actor Admin
   actor Donor
-  participant ReliefFund (Contract A)
-  participant RecipientRegistry (Contract B)
+  actor Admin
+  participant ReliefFund (A)
+  participant RecipientRegistry (B)
   participant XLM Token (SAC)
 
-  Donor->>ReliefFund (Contract A): donate(amount)
-  ReliefFund (Contract A)->>XLM Token (SAC): transfer(donor, fund, amount)
-  Admin->>RecipientRegistry (Contract B): register_recipient(recipient, region, verification_id)
-  Admin->>ReliefFund (Contract A): disburse(recipient, amount)
-  ReliefFund (Contract A)->>RecipientRegistry (Contract B): is_eligible(recipient)
-  RecipientRegistry (Contract B)-->>ReliefFund (Contract A): return true (eligible)
-  ReliefFund (Contract A)->>XLM Token (SAC): transfer(fund, recipient, amount)
-  ReliefFund (Contract A)->>RecipientRegistry (Contract B): mark_disbursed(recipient, amount)
-  Note over RecipientRegistry (Contract B): Updates total received & enforces cap
-  RecipientRegistry (Contract B)-->>ReliefFund (Contract A): confirm success
-  Note over ReliefFund (Contract A): Emits aid_disbursed event
+  Donor->>ReliefFund (A): donate(amount)
+  ReliefFund (A)->>XLM Token (SAC): transfer(donor → fund)
+  Admin->>RecipientRegistry (B): register_recipient(addr, region, id)
+  Admin->>ReliefFund (A): disburse(recipient, amount)
+  ReliefFund (A)->>RecipientRegistry (B): is_eligible(recipient)
+  RecipientRegistry (B)-->>ReliefFund (A): true
+  ReliefFund (A)->>XLM Token (SAC): transfer(fund → recipient)
+  ReliefFund (A)->>RecipientRegistry (B): mark_disbursed(recipient, amount)
+  Note over RecipientRegistry (B): Enforces 500 XLM cap
 ```
 
 ---
 
 ## 📋 Deployed On-Chain Configuration (Testnet)
 
-| Component | Testnet Identifier / Link |
-|-----------|--------------------------|
-| **ReliefFund Contract (Contract A)** | `CBRXCUSDHECQWR3VWWNIOJ3NJXLGIJAXXXBFDKEOUSVUXAVJHHKKRGQQ` |
-| **RecipientRegistry Contract (Contract B)** | `CCO2MSZLIJS2HURXQELKLEIGCEE2FKUJRF7IGT3ZA4GRWI4SCOXVQ5YB` |
-| **Admin Organization Address** | `GAGQNYTIAVTZP6U3GOW3TUZ344UFOEKNZGRC6E2TWZ22PGAPL56Y3WRT` |
+| Component | Identifier |
+|-----------|-----------|
+| **ReliefFund Contract (A)** | `CCZT3C7MYAP7QPN6ADIQOMJV6R5TMT24YNDQZBTOR7TBWULWCC6MLRUX` |
+| **RecipientRegistry Contract (B)** | `CCVCY2LKPDN4PW27GPKRSBZKYEDQJ6PVQO55B2MOI3YQMLMQI6ZQ65GG` |
+| **Admin Organization Address** | `GDR72LMKQGGZUE7TBIMEPSE3CZAEBDFLDSA5EI6F3A3QS2QPBHXRJPXJ` |
 | **Native XLM SAC Contract** | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` |
-| **Stellar Expert Fund Contract Link** | [View ReliefFund on Stellar Expert](https://stellar.expert/explorer/testnet/contract/CBRXCUSDHECQWR3VWWNIOJ3NJXLGIJAXXXBFDKEOUSVUXAVJHHKKRGQQ) |
-| **Stellar Expert Registry Contract Link** | [View RecipientRegistry on Stellar Expert](https://stellar.expert/explorer/testnet/contract/CCO2MSZLIJS2HURXQELKLEIGCEE2FKUJRF7IGT3ZA4GRWI4SCOXVQ5YB) |
+| **Stellar Expert — ReliefFund** | [View on Stellar Expert](https://stellar.expert/explorer/testnet/contract/CCZT3C7MYAP7QPN6ADIQOMJV6R5TMT24YNDQZBTOR7TBWULWCC6MLRUX) |
+| **Stellar Expert — RecipientRegistry** | [View on Stellar Expert](https://stellar.expert/explorer/testnet/contract/CCVCY2LKPDN4PW27GPKRSBZKYEDQJ6PVQO55B2MOI3YQMLMQI6ZQ65GG) |
 
 ### 🔍 Real On-Chain Disbursement Audit
-*   **Disbursement Transaction Hash**: `8db7cb5d15b3afd9193dcfe570b67515fe15e2db0653ab4efcf6adf26df617c0`
-*   **Stellar Expert Transaction Link**: [View Audit Trail on Stellar Expert](https://stellar.expert/explorer/testnet/tx/8db7cb5d15b3afd9193dcfe570b67515fe15e2db0653ab4efcf6adf26df617c0)
+- **Disbursement Transaction Hash**: `8db7cb5d15b3afd9193dcfe570b67515fe15e2db0653ab4efcf6adf26df617c0`
+- [View on Stellar Expert](https://stellar.expert/explorer/testnet/tx/8db7cb5d15b3afd9193dcfe570b67515fe15e2db0653ab4efcf6adf26df617c0)
 
 ---
 
 ## 🛠️ Setup & Execution
 
 ### Prerequisites
-- **Rust 1.96+** with `wasm32-unknown-unknown` target.
-- **Stellar CLI v27+** (for contract interaction and deployment).
-- **Node.js 24+** and **npm 11+**.
-- **Freighter Wallet** or **xBull Wallet** browser extensions.
+- **Rust 1.96+** with `wasm32-unknown-unknown` target
+- **Stellar CLI v27+**
+- **Node.js 24+** and **npm 11+**
+- **Freighter** or **xBull** wallet browser extension
 
-### 1. Build and Test Smart Contracts
-Navigate to the root workspace directory and run:
+### 1. Environment Variables
+
+Copy the example env file and fill in your keys:
 ```bash
-# Run Cargo unit tests for both contracts (7 passing tests)
+cp .env.example .env
+```
+
+Edit `.env`:
+```env
+VITE_POSTHOG_KEY=phc_your_key_here        # from posthog.com
+VITE_POSTHOG_HOST=https://app.posthog.com
+VITE_SENTRY_DSN=https://...@sentry.io/...  # from sentry.io
+VITE_FORMSPREE_ID=xpwzabcd                 # from formspree.io
+```
+
+If any key is omitted, the corresponding feature silently disables itself (no errors).
+
+### 2. Run Frontend Locally
+```bash
+npm install
+npm run dev
+# → http://localhost:5173
+```
+
+### 3. Run Tests
+```bash
+# Frontend unit tests (Vitest)
+npm run test -- --run
+
+# Rust contract tests (10 passing)
 cargo test
 
-# Build WASM targets
-cargo build --target wasm32-unknown-unknown --release
+# Lint
+npm run lint
+```
 
-# Optimize WASM sizes for Soroban
+### 4. Build Contracts
+```bash
+cargo build --target wasm32-unknown-unknown --release
 stellar contract optimize --wasm target/wasm32-unknown-unknown/release/recipient_registry.wasm
 stellar contract optimize --wasm target/wasm32-unknown-unknown/release/relief_fund.wasm
 ```
 
-### 2. Deploy and Initialize Contracts
-Deploy both WASM files to Testnet, then initialize them:
+### 5. Deploy & Initialize Contracts
 ```bash
 # Deploy RecipientRegistry
 stellar contract deploy \
   --wasm target/wasm32-unknown-unknown/release/recipient_registry.optimized.wasm \
-  --source-account deployer \
-  --network testnet
+  --source-account deployer --network testnet
 
 # Deploy ReliefFund
 stellar contract deploy \
   --wasm target/wasm32-unknown-unknown/release/relief_fund.optimized.wasm \
-  --source-account deployer \
-  --network testnet
+  --source-account deployer --network testnet
 
-# Initialize RecipientRegistry (Link it to ReliefFund address & set max cap)
+# Initialize RecipientRegistry
 stellar contract invoke \
-  --id CCO2MSZLIJS2HURXQELKLEIGCEE2FKUJRF7IGT3ZA4GRWI4SCOXVQ5YB \
-  --source-account deployer \
-  --network testnet \
-  -- \
-  init \
+  --id <REGISTRY_ID> --source-account deployer --network testnet \
+  -- init \
   --admin $(stellar keys address deployer) \
-  --fund_contract CBRXCUSDHECQWR3VWWNIOJ3NJXLGIJAXXXBFDKEOUSVUXAVJHHKKRGQQ \
-  --max_cap 5000000000 # 500 XLM max cap
+  --fund_contract <FUND_ID> \
+  --max_cap 5000000000
 
-# Initialize ReliefFund (Link to RecipientRegistry & XLM SAC)
+# Initialize ReliefFund
 stellar contract invoke \
-  --id CBRXCUSDHECQWR3VWWNIOJ3NJXLGIJAXXXBFDKEOUSVUXAVJHHKKRGQQ \
-  --source-account deployer \
-  --network testnet \
-  -- \
-  init \
+  --id <FUND_ID> --source-account deployer --network testnet \
+  -- init \
   --admin $(stellar keys address deployer) \
   --token CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC \
-  --registry CCO2MSZLIJS2HURXQELKLEIGCEE2FKUJRF7IGT3ZA4GRWI4SCOXVQ5YB
+  --registry <REGISTRY_ID>
 ```
 
-### 3. Run Frontend Dashboard Locally
-Navigate to the `frontend` folder:
-```bash
-# Install dependencies
-npm install
+---
 
-# Run frontend tests
-npm run test -- --run
+## 📊 Analytics Integration (PostHog)
 
-# Run linter
-npm run lint
+**Tool**: PostHog free tier ([posthog.com](https://posthog.com))
 
-# Run local development server
-npm run dev
-```
+**What's tracked and why**:
+
+| Event | Why |
+|-------|-----|
+| `page_view` | Understand overall traffic and session volume |
+| `wallet_connected` | Measure onboarding funnel entry rate |
+| `donation_submitted` | Track donor conversion |
+| `disbursement_submitted` | Track admin activity |
+| `recipient_registered` | Track registry growth |
+| `feedback_submitted` | Measure feedback engagement rate |
+
+**Privacy**: `autocapture: false` — only explicit named events are sent. No PII (wallet addresses are only used as PostHog `distinct_id` for session continuity, not as human-identifiable data). No session recording.
+
+**Setup**:
+1. Create a free project at [posthog.com](https://posthog.com)
+2. Copy your Project API Key
+3. Add to `.env`: `VITE_POSTHOG_KEY=phc_...` and `VITE_POSTHOG_HOST=https://app.posthog.com`
+
+---
+
+## 🚨 Error Tracking / Monitoring (Sentry)
+
+**Tool**: Sentry free tier ([sentry.io](https://sentry.io))
+
+**What's captured**:
+- Failed Soroban contract calls (simulation errors, tx failures)
+- Unexpected network/RPC errors
+- Unhandled JavaScript exceptions
+
+**What's NOT captured**:
+- User-rejected wallet signings (`USER_REJECTED`)
+- Pre-validation errors (insufficient balance, cap exceeded — these are expected states shown to the user)
+
+**Setup**:
+1. Create a free React project at [sentry.io](https://sentry.io)
+2. Copy your DSN from Project Settings → Client Keys
+3. Add to `.env`: `VITE_SENTRY_DSN=https://...@sentry.io/...`
+
+---
+
+## 💬 Feedback Collection (Formspree)
+
+**Tool**: Formspree free tier ([formspree.io](https://formspree.io)) — 50 submissions/month, no backend required.
+
+**The 3 questions asked**:
+1. How easy was this to use? (1–5 stars)
+2. Did anything break or confuse you? (freetext)
+3. What would you want this to do next? (freetext)
+
+**Setup**:
+1. Create a free account at [formspree.io](https://formspree.io)
+2. Create a new form → copy the form ID (the part after `/f/` in the endpoint)
+3. Add to `.env`: `VITE_FORMSPREE_ID=xpwzabcd`
+
+Without the ID, submissions are logged to browser console (safe dev mode).
+
+---
+
+## 🎓 First-Time Onboarding
+
+A dismissible overlay is shown to first-time visitors explaining:
+1. **Connect Your Wallet** — Install Freighter or xBull
+2. **Donate or Get Registered** — Donors send XLM, orgs register recipients
+3. **Funds Move On-Chain** — Code enforces all rules, no middlemen
+4. **Track Everything** — Public history feed, auditable on Stellar Expert
+
+Dismissed state persists in `localStorage` (`reliefRailOnboardingSeen`). To re-show during testing, run `localStorage.removeItem('reliefRailOnboardingSeen')` in the browser console.
 
 ---
 
 ## 🚨 Production Error States Handled
 
-1.  **Wallet Not Found**: Gracefully prompts the user if neither Freighter nor xBull is installed.
-2.  **User Rejected Signing**: Catches signing rejections from Freighter/xBull and reverts to input without locking the UI.
-3.  **Insufficient Wallet Balance**: Donor-side precheck verifying they have enough funds to cover the donation amount.
-4.  **Insufficient Contract Balance**: Admin-side precheck verifying the contract pools hold enough XLM to execute the disbursement.
-5.  **Recipient Not Registered/Eligible**: Reverts simulation if attempting to disburse to an address not registered in `RecipientRegistry`.
-6.  **Disbursement Cap Exceeded**: Precheck and contract enforcement preventing disbursements that exceed the **500 XLM** limit per recipient.
-7.  **Network/RPC Failure**: Custom alerts for Horizon or Soroban RPC node timeout states.
+| Error | Handling |
+|-------|---------|
+| Wallet not installed | Human-readable prompt with install link |
+| User rejected signing | Caught, shown to user, not sent to Sentry |
+| Insufficient wallet balance | Pre-check with exact balance shown |
+| Insufficient fund balance | Pre-check with exact available amount |
+| Recipient not registered | Contract error parsed and shown |
+| Disbursement cap exceeded | Pre-check with exact remaining amount |
+| RPC/network failure | Friendly message, captured in Sentry |
+| Already registered | Contract typed error, human-readable message |
 
 ---
 
 ## 📸 Screenshots
 
-### 1. Mobile Interface (375px Fluid Stacking Layout)
-![Mobile Layout](disaster_relief_modal.png)
+> **Note**: Capture these after real user testing and fill in below.
 
-### 2. CI/CD GitHub Actions Pipeline passing build and test checks
-![CI/CD Pipeline](disaster_relief_dashboard.png)
-*(Note: Screenshots are cached by Github Camo and use unique names for instant cache busting.)*
+### Product UI (Desktop)
+`[TO ADD — Screenshot of the main dashboard with fund balance, tabs, and history feed]`
+
+### Mobile UI (375px)
+`[TO ADD — Screenshot at 375px showing collapsed header, skeleton loaders, and feedback widget]`
+
+### Analytics Dashboard
+`[TO ADD — Screenshot of PostHog dashboard showing event counts after real users]`
+
+### Onboarding Overlay
+`[TO ADD — Screenshot of the first-time onboarding modal]`
+
+### Feedback Widget
+`[TO ADD — Screenshot of open feedback panel with star rating]`
+
+---
+
+## 📋 User Onboarding Proof
+
+`[TO ADD — Evidence of at least 10 real users interacting with the deployed app]`
+
+---
+
+## 💬 Feedback Summary
+
+`[TO ADD — Summary of feedback responses received from real users]`
+
+---
+
+## 🔀 Git Commit History
+
+This project follows a clean, granular commit history:
+
+1. `feat(contracts)` — Typed contracterror enums + human-readable frontend error parsing
+2. `feat(ui)` — Skeleton loaders and loading states for all async actions
+3. `feat(ux)` — First-time onboarding overlay with 4-step explainer
+4. `feat(feedback)` — Floating feedback widget via Formspree
+5. `feat(analytics)` — PostHog integration for privacy-friendly usage tracking
+6. `feat(monitoring)` — Sentry error tracking integration
+7. `fix(mobile)` — Comprehensive 375px/414px responsive audit
+8. `docs` — Level 4 README with all integrations documented
