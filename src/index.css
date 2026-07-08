@@ -2025,8 +2025,35 @@ a:hover {
   }
 
   .btn-fund-crisis,
-  .btn-campaign-donate {
+  .btn-campaign-donate,
+  .btn-wallet,
+  .btn-primary {
     min-height: 44px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    font-size: 0.85rem;
+  }
+
+  .funds-display .funds-amount {
+    font-size: 2.2rem;
+  }
+
+  .funds-display .funds-symbol {
+    font-size: 1.2rem;
+  }
+
+  .toast-notification {
+    max-width: 100%;
+    width: calc(100vw - 2rem);
   }
 }
 
+@media (max-width: 360px) {
+  .funds-display .funds-amount {
+    font-size: 1.8rem;
+  }
+  
+  .campaign-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -250,22 +250,17 @@ Dismissed state persists in `localStorage` (`reliefRailOnboardingSeen`). To re-s
 
 ## 📸 Screenshots
 
-> **Note**: Capture these after real user testing and fill in below.
+### Before Connection
+![Before Connection](./before%20connection.png)
 
-### Product UI (Desktop)
-`[TO ADD — Screenshot of the main dashboard with fund balance, tabs, and history feed]`
+### Wallet Options
+![Wallet Options](./wallet%20options.png)
 
-### Mobile UI (375px)
-`[TO ADD — Screenshot at 375px showing collapsed header, skeleton loaders, and feedback widget]`
+### After Wallet Connection
+![After Wallet Connection](./after%20wallet%20connection.png)
 
-### Analytics Dashboard
-`[TO ADD — Screenshot of PostHog dashboard showing event counts after real users]`
-
-### Onboarding Overlay
-`[TO ADD — Screenshot of the first-time onboarding modal]`
-
-### Feedback Widget
-`[TO ADD — Screenshot of open feedback panel with star rating]`
+### Deployed Contract Address
+![Deployed Contract Address](./Deployed%20contract%20address.png)
 
 ---
 
