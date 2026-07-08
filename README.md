@@ -1,5 +1,11 @@
 # 🚄 Disaster Relief Rail 
 
+---
+
+Disaster Relief Rail is a direct, transparent aid disbursement dApp built on the **Stellar Soroban testnet**. It enables relief organizations to pool donor contributions in a transparent smart contract and disburse aid directly to verified recipient wallets — with full public cryptographic auditability, real-time analytics, error monitoring, and a first-class mobile experience.
+
+---
+
 ## 📸 Screenshots
 
 ### Before Connection
@@ -10,13 +16,6 @@
 
 ### After Wallet Connection
 ![After Wallet Connection](./after%20wallet%20connection.png)
-
-### Deployed Contract Address
-![Deployed Contract Address](./Deployed%20contract%20address.png)
-
----
-
-Disaster Relief Rail is a direct, transparent aid disbursement dApp built on the **Stellar Soroban testnet**. It enables relief organizations to pool donor contributions in a transparent smart contract and disburse aid directly to verified recipient wallets — with full public cryptographic auditability, real-time analytics, error monitoring, and a first-class mobile experience.
 
 ---
 
