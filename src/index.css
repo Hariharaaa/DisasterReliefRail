@@ -221,6 +221,7 @@ a:hover {
   color: var(--c-white);
   border-color: var(--c-black);
   animation: fadeInSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both, pulseGlow 4s ease-in-out infinite;
+  margin-bottom: 2rem;
 }
 
 .funds-display h2.funds-title {
@@ -1386,5 +1387,646 @@ a:hover {
 .spin-on-update {
   animation: spin 3s linear infinite;
   opacity: 0.5;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   DISASTER CAMPAIGNS FEATURE
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Disaster Feed Section ─────────────────────────────────────────────────── */
+
+.disaster-feed-section {
+  background: var(--c-light-gray);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius-card);
+  padding: 2rem 2.25rem;
+  margin-bottom: 2rem;
+  animation: fadeInSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.05s;
+}
+
+.disaster-feed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.disaster-feed-header .card-title {
+  margin-bottom: 0;
+}
+
+.disaster-feed-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.feed-source-badge {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: var(--c-white);
+  color: var(--text-muted);
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--border-radius-pill);
+  border: 1px solid var(--border-color);
+  letter-spacing: 0.04em;
+}
+
+.feed-source-badge.cached {
+  background: #FEF3C7;
+  color: #92400E;
+  border-color: #F59E0B;
+}
+
+.feed-scroll-controls {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.feed-scroll-btn {
+  width: 2rem;
+  height: 2rem;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: 50%;
+  background: var(--c-white);
+  color: var(--c-black);
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.feed-scroll-btn:hover {
+  background: var(--c-yellow);
+  transform: translateY(-1px);
+}
+
+/* Scrollable disaster card container */
+.disaster-feed-scroll {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.5rem;
+}
+
+.disaster-feed-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.disaster-feed-scroll::-webkit-scrollbar-track {
+  background: var(--c-white);
+  border-radius: 99px;
+  border: 1px solid var(--c-black);
+}
+
+.disaster-feed-scroll::-webkit-scrollbar-thumb {
+  background: var(--c-black);
+  border-radius: 99px;
+}
+
+/* Individual disaster card */
+.disaster-card {
+  flex: 0 0 280px;
+  scroll-snap-align: start;
+  background: var(--c-white);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius-input);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: var(--transition-fast);
+  animation: fadeInSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.disaster-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--c-yellow);
+}
+
+.disaster-card-skeleton {
+  min-height: 180px;
+}
+
+.disaster-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.disaster-type-badge {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--border-radius-pill);
+  border: 1.5px solid var(--border-color);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  letter-spacing: 0.03em;
+}
+
+.disaster-type-badge.flood { background: #DBEAFE; }
+.disaster-type-badge.earthquake { background: #FEE2E2; }
+.disaster-type-badge.cyclone { background: #E0E7FF; }
+.disaster-type-badge.drought { background: #FEF3C7; }
+.disaster-type-badge.volcano { background: #FECDD3; }
+.disaster-type-badge.wildfire { background: #FFEDD5; }
+.disaster-type-badge.tsunami { background: #CFFAFE; }
+.disaster-type-badge.landslide { background: #E5E7EB; }
+.disaster-type-badge.other { background: var(--c-light-gray); }
+
+.disaster-severity {
+  font-size: 0.7rem;
+}
+
+.severity-critical { color: #DC2626; }
+.severity-alert { color: #F59E0B; }
+.severity-warning { color: #6B7280; }
+
+.disaster-card-title {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--c-black);
+  text-transform: none;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.disaster-card-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.disaster-detail {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-sans);
+}
+
+.btn-fund-crisis {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  border-radius: var(--border-radius-pill);
+  border: var(--border-width) solid var(--border-color);
+  background: var(--c-yellow);
+  color: var(--c-black);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.btn-fund-crisis:hover {
+  background: var(--c-black);
+  color: var(--c-white);
+  transform: translateY(-2px);
+}
+
+.btn-fund-crisis:active {
+  transform: translateY(0);
+}
+
+/* Feed fallback */
+.disaster-feed-fallback {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-feed-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 1rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.8rem;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius-pill);
+  background: var(--c-white);
+  color: var(--c-black);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.btn-feed-retry:hover {
+  background: var(--c-yellow);
+}
+
+/* ── Campaign Section ──────────────────────────────────────────────────────── */
+
+.campaign-section {
+  background: var(--c-light-gray);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius-card);
+  padding: 2rem 2.25rem;
+  margin-bottom: 2rem;
+  animation: fadeInSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.15s;
+}
+
+.campaign-section > .card-title {
+  margin-bottom: 1.5rem;
+}
+
+.campaign-count-badge {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 800;
+  background: var(--c-black);
+  color: var(--c-yellow);
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--border-radius-pill);
+  margin-left: 0.5rem;
+}
+
+.campaign-empty {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.campaign-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+/* Individual campaign card */
+.campaign-card {
+  background: var(--c-white);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius-input);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: var(--transition-fast);
+  animation: fadeInSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.campaign-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--c-yellow);
+}
+
+.campaign-card.fully-funded {
+  border-color: var(--success);
+  background: #F0FDF4;
+}
+
+.campaign-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.campaign-card-name {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--c-black);
+  text-transform: none;
+  line-height: 1.3;
+  flex: 1;
+}
+
+.campaign-region-tag {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: var(--c-light-gray);
+  color: var(--text-secondary);
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--border-radius-pill);
+  border: 1px solid var(--border-color);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.campaign-card-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.campaign-progress-section {
+  margin-top: 0.25rem;
+}
+
+.campaign-progress-section .progress-labels {
+  font-size: 0.7rem;
+}
+
+.campaign-progress-section .progress-labels strong {
+  color: var(--c-black);
+  font-weight: 800;
+}
+
+.progress-bar-fill.progress-complete {
+  background: var(--success);
+}
+
+.btn-campaign-donate {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  border-radius: var(--border-radius-pill);
+  border: var(--border-width) solid var(--border-color);
+  background: var(--c-yellow);
+  color: var(--c-black);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.btn-campaign-donate:hover:not(:disabled) {
+  background: var(--c-black);
+  color: var(--c-white);
+  transform: translateY(-2px);
+}
+
+.btn-campaign-donate:disabled {
+  background: #D1FAE5;
+  color: var(--success);
+  border-color: var(--success);
+  cursor: default;
+}
+
+/* ── Create Campaign Modal ─────────────────────────────────────────────────── */
+
+.create-campaign-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(25, 19, 20, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 150;
+  padding: 1.5rem;
+  animation: fadeIn 0.2s ease;
+}
+
+.create-campaign-modal {
+  background: var(--c-white);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius-card);
+  width: 100%;
+  max-width: 520px;
+  padding: 2.5rem;
+  box-shadow: 8px 8px 0 var(--c-black);
+  position: relative;
+  animation: slideUpModal 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  background: var(--c-light-gray);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: 50%;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  color: var(--c-black);
+}
+
+.modal-close-btn:hover {
+  background: var(--c-yellow);
+  transform: rotate(90deg);
+}
+
+.linked-disaster-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: #EEF2FF;
+  border: 1.5px solid #818CF8;
+  border-radius: var(--border-radius-input);
+  font-size: 0.8rem;
+  color: var(--c-black);
+  margin-bottom: 1.5rem;
+  line-height: 1.3;
+}
+
+.linked-disaster-badge strong {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+.campaign-textarea {
+  resize: vertical;
+  min-height: 72px;
+  font-size: 0.9rem;
+}
+
+.campaign-success {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+/* ── Campaign Selector in Forms ────────────────────────────────────────────── */
+
+.campaign-selector-group {
+  margin-bottom: 1.75rem;
+}
+
+.campaign-selector-group .form-input {
+  cursor: pointer;
+}
+
+.campaign-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: #EEF2FF;
+  color: #4338CA;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--border-radius-pill);
+  border: 1px solid #818CF8;
+  margin-left: 0.4rem;
+}
+
+/* Admin create campaign button */
+.btn-create-campaign {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  border-radius: var(--border-radius-pill);
+  border: var(--border-width) solid var(--border-color);
+  background: var(--c-black);
+  color: var(--c-yellow);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+
+.btn-create-campaign:hover {
+  background: var(--c-yellow);
+  color: var(--c-black);
+  transform: translateY(-2px);
+  box-shadow: 4px 4px 0 var(--c-black);
+}
+
+/* ── Campaign filter in admin tab ──────────────────────────────────────────── */
+
+.campaign-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.campaign-filter-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.campaign-filter-select {
+  flex: 1;
+  padding: 0.5rem 0.85rem;
+  background: var(--c-white);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius-pill);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  color: var(--c-black);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  min-width: 0;
+}
+
+.campaign-filter-select:focus {
+  outline: none;
+  box-shadow: 3px 3px 0 var(--c-yellow);
+}
+
+/* ── Responsive: Disaster Feed & Campaigns ─────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .disaster-feed-section,
+  .campaign-section {
+    padding: 1.5rem 1rem;
+    border-radius: 20px;
+  }
+
+  .disaster-feed-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .disaster-card {
+    flex: 0 0 250px;
+  }
+
+  .campaign-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .create-campaign-modal {
+    padding: 1.75rem 1.25rem;
+    box-shadow: 6px 6px 0 var(--c-black);
+  }
+}
+
+@media (max-width: 480px) {
+  .disaster-card {
+    flex: 0 0 220px;
+    padding: 1rem;
+  }
+
+  .disaster-card-title {
+    font-size: 0.78rem;
+  }
+
+  .campaign-card {
+    padding: 1.25rem;
+  }
+
+  .feed-scroll-controls {
+    display: none;
+  }
+
+  .btn-fund-crisis,
+  .btn-campaign-donate {
+    min-height: 44px;
+  }
 }
 

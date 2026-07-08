@@ -12,9 +12,13 @@ import {
   subscribeToFundEvents
 } from './stellar'
 import { ADMIN_ADDRESS, STELLAR_EXPERT_URL, MAX_DISBURSEMENT_CAP } from './config'
+import { getActiveCampaigns, recordDonation, recordDisbursement, getDisbursementCampaignTag } from './services/campaignStore'
 import TransactionModal from './components/TransactionModal'
 import OnboardingOverlay from './components/OnboardingOverlay'
 import FeedbackWidget from './components/FeedbackWidget'
+import DisasterFeed from './components/DisasterFeed'
+import CampaignCards from './components/CampaignCards'
+import CreateCampaignModal from './components/CreateCampaignModal'
 import { SkeletonBalance, SkeletonRow } from './components/SkeletonLoader'
 import { trackEvent } from './analytics'
 import * as Sentry from '@sentry/react'
@@ -35,7 +39,9 @@ import {
   MapPin,
   FileText,
   HelpCircle,
-  ExternalLink as ExtLink
+  ExternalLink as ExtLink,
+  Target,
+  Plus
 } from 'lucide-react'
 
 export default function App() {
@@ -80,6 +86,22 @@ export default function App() {
 
   // Toast Notifications State
   const [notifications, setNotifications] = useState([])
+
+  // ── Campaign State ──────────────────────────────────────────────────────────
+  const [campaigns, setCampaigns] = useState([])
+  const [selectedCampaignId, setSelectedCampaignId] = useState('')
+  const [disburseCampaignId, setDisburseCampaignId] = useState('')
+  const [showCreateCampaign, setShowCreateCampaign] = useState(false)
+  const [linkedDisaster, setLinkedDisaster] = useState(null)
+
+  // Load campaigns from localStorage
+  const refreshCampaigns = useCallback(() => {
+    setCampaigns(getActiveCampaigns())
+  }, [])
+
+  useEffect(() => {
+    refreshCampaigns()
+  }, [refreshCampaigns])
 
   // Fetch all on-chain data
   const refreshData = useCallback(async (isInitial = false) => {
@@ -162,6 +184,42 @@ export default function App() {
     setNewRecipientVerifyId('')
     setDisburseRecipient('')
     setDisburseAmount('')
+    setSelectedCampaignId('')
+    setDisburseCampaignId('')
+  }
+
+  // ── Campaign Handlers ───────────────────────────────────────────────────────
+
+  // When user clicks "Fund this crisis" on a disaster card
+  const handleFundCrisis = (disaster) => {
+    // Check if a campaign already exists for this disaster
+    const existing = campaigns.find(c => c.disasterId === disaster.id)
+    if (existing) {
+      // Pre-select the existing campaign and scroll to donate form
+      setSelectedCampaignId(existing.id)
+      setActiveTab('donor')
+    } else {
+      // Open create campaign modal with this disaster pre-linked
+      setLinkedDisaster(disaster)
+      setShowCreateCampaign(true)
+    }
+  }
+
+  // When a campaign is created successfully
+  const handleCampaignCreated = (newCampaign) => {
+    refreshCampaigns()
+    setSelectedCampaignId(newCampaign.id)
+    trackEvent('campaign_created', { name: newCampaign.name, region: newCampaign.region })
+  }
+
+  // When user clicks "Donate to this campaign" on a campaign card
+  const handleSelectCampaign = (campaign) => {
+    setSelectedCampaignId(campaign.id)
+    setActiveTab('donor')
+    // Scroll to donation form
+    setTimeout(() => {
+      document.getElementById('donate-amount')?.focus()
+    }, 200)
   }
 
   // Handle donation
@@ -192,10 +250,16 @@ export default function App() {
         }
       })
 
+      // Record donation against campaign if one is selected
+      if (selectedCampaignId) {
+        recordDonation(selectedCampaignId, Number(donateAmount), address)
+        refreshCampaigns()
+      }
+
       setTxStage('Success')
       clearInputs()
       refreshData(false)
-      trackEvent('donation_submitted', { amount: donateAmount })
+      trackEvent('donation_submitted', { amount: donateAmount, campaignId: selectedCampaignId || 'general' })
     } catch (err) {
       console.error('Donate error:', err)
       setTxStage('Failed')
@@ -283,10 +347,16 @@ export default function App() {
         }
       })
 
+      // Record disbursement against campaign if one is selected
+      if (disburseCampaignId) {
+        recordDisbursement(disburseCampaignId, Number(disburseAmount), disburseRecipient)
+        refreshCampaigns()
+      }
+
       setTxStage('Success')
       clearInputs()
       refreshData(false)
-      trackEvent('disbursement_submitted', { amount: disburseAmount })
+      trackEvent('disbursement_submitted', { amount: disburseAmount, campaignId: disburseCampaignId || 'general' })
     } catch (err) {
       console.error('Disburse error:', err)
       setTxStage('Failed')
@@ -365,58 +435,71 @@ export default function App() {
         </div>
       )}
 
-      {/* DASHBOARD GRID */}
+      {/* ── FULL-WIDTH TOP SECTIONS ──────────────────────────────────────── */}
+
+      {/* AVAILABLE FUNDS DISPLAY */}
+      <section className="card funds-display" aria-label="Relief Fund Balance">
+        {isLoadingBalance ? (
+          <SkeletonBalance />
+        ) : (
+          <>
+            <h2 className="funds-title">Active Relief Fund Balance</h2>
+            <p className="funds-amount">
+              {fundBalance} <span className="funds-symbol">XLM</span>
+            </p>
+            <div className="funds-info">
+              <RefreshCw size={14} className="spin-on-update" aria-hidden="true" />
+              <span>Synced live with Soroban Testnet smart contract</span>
+            </div>
+            {address && (
+              <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '2px solid #5C5657', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: '700' }}>Your Wallet Balance:</span>
+                <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--c-white)', fontSize: '1.1rem', fontWeight: '800' }}>{walletBalance} XLM</strong>
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
+      {/* VIEW SWITCHING TABS */}
+      <nav className="tabs-nav" role="tablist" aria-label="Portal tabs">
+        <button
+          role="tab"
+          aria-selected={activeTab === 'donor'}
+          className={`tab-btn ${activeTab === 'donor' ? 'active' : ''}`}
+          onClick={() => setActiveTab('donor')}
+          id="tab-donor"
+        >
+          <Heart size={16} aria-hidden="true" />
+          <span>Donor Portal</span>
+        </button>
+        <button
+          role="tab"
+          aria-selected={activeTab === 'admin'}
+          className={`tab-btn ${activeTab === 'admin' ? 'active' : ''}`}
+          onClick={() => setActiveTab('admin')}
+          id="tab-admin"
+        >
+          <Lock size={16} aria-hidden="true" />
+          <span>Admin Portal</span>
+        </button>
+      </nav>
+
+      {/* DONOR-ONLY: FULL-WIDTH DISASTER FEED + CAMPAIGNS */}
+      {activeTab === 'donor' && (
+        <>
+          <DisasterFeed onFundCrisis={handleFundCrisis} />
+          <CampaignCards
+            campaigns={campaigns}
+            onSelectCampaign={handleSelectCampaign}
+          />
+        </>
+      )}
+
+      {/* ── TWO-COLUMN DASHBOARD GRID ──────────────────────────────────── */}
       <div className="dashboard-grid">
         {/* LEFT COLUMN: INTERACTION PANELS */}
         <main className="left-column" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-
-          {/* AVAILABLE FUNDS DISPLAY */}
-          <section className="card funds-display" aria-label="Relief Fund Balance">
-            {isLoadingBalance ? (
-              <SkeletonBalance />
-            ) : (
-              <>
-                <h2 className="funds-title">Active Relief Fund Balance</h2>
-                <p className="funds-amount">
-                  {fundBalance} <span className="funds-symbol">XLM</span>
-                </p>
-                <div className="funds-info">
-                  <RefreshCw size={14} className="spin-on-update" aria-hidden="true" />
-                  <span>Synced live with Soroban Testnet smart contract</span>
-                </div>
-                {address && (
-                  <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '2px solid #5C5657', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: '700' }}>Your Wallet Balance:</span>
-                    <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--c-white)', fontSize: '1.1rem', fontWeight: '800' }}>{walletBalance} XLM</strong>
-                  </div>
-                )}
-              </>
-            )}
-          </section>
-
-          {/* VIEW SWITCHING TABS */}
-          <nav className="tabs-nav" role="tablist" aria-label="Portal tabs">
-            <button
-              role="tab"
-              aria-selected={activeTab === 'donor'}
-              className={`tab-btn ${activeTab === 'donor' ? 'active' : ''}`}
-              onClick={() => setActiveTab('donor')}
-              id="tab-donor"
-            >
-              <Heart size={16} aria-hidden="true" />
-              <span>Donor Portal</span>
-            </button>
-            <button
-              role="tab"
-              aria-selected={activeTab === 'admin'}
-              className={`tab-btn ${activeTab === 'admin' ? 'active' : ''}`}
-              onClick={() => setActiveTab('admin')}
-              id="tab-admin"
-            >
-              <Lock size={16} aria-hidden="true" />
-              <span>Admin Portal</span>
-            </button>
-          </nav>
 
           {/* DONOR TAB VIEW */}
           {activeTab === 'donor' && (
@@ -441,6 +524,30 @@ export default function App() {
                 </div>
               ) : (
                 <form onSubmit={handleDonate} noValidate>
+                  {/* Campaign Selector */}
+                  {campaigns.length > 0 && (
+                    <div className="campaign-selector-group">
+                      <label className="form-label" htmlFor="donate-campaign">
+                        <Target size={13} style={{ display: 'inline', verticalAlign: '-2px' }} /> Tag to Campaign (Optional)
+                      </label>
+                      <select
+                        id="donate-campaign"
+                        className="form-input"
+                        value={selectedCampaignId}
+                        onChange={(e) => setSelectedCampaignId(e.target.value)}
+                        disabled={!!txStage && txStage !== 'Success' && txStage !== 'Failed'}
+                      >
+                        <option value="">— General Fund (no campaign) —</option>
+                        {campaigns.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} — {c.region} ({c.raised.toFixed(0)}/{c.goal} XLM)
+                          </option>
+                        ))}
+                      </select>
+                      <p className="form-helper">Optionally link your donation to a specific disaster campaign for transparent tracking.</p>
+                    </div>
+                  )}
+
                   <div className="form-group">
                     <label className="form-label" htmlFor="donate-amount">
                       Donation Amount (XLM)
@@ -487,6 +594,50 @@ export default function App() {
                   </div>
                 </div>
               )}
+
+              {/* CREATE CAMPAIGN BUTTON (Admin Only) */}
+              <section className="card">
+                <h3 className="card-title"><Target size={20} aria-hidden="true" /> Campaign Management</h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                  Create named campaigns linked to specific disaster events. Donors can then direct their contributions to the crises that matter most to them.
+                </p>
+                <button
+                  className="btn-create-campaign"
+                  onClick={() => { setLinkedDisaster(null); setShowCreateCampaign(true) }}
+                  id="btn-open-create-campaign"
+                >
+                  <Plus size={18} aria-hidden="true" />
+                  <span>Create New Campaign</span>
+                </button>
+
+                {campaigns.length > 0 && (
+                  <div className="campaign-grid" style={{ marginTop: '0.5rem' }}>
+                    {campaigns.map(c => {
+                      const pct = c.goal > 0 ? Math.min((c.raised / c.goal) * 100, 100) : 0
+                      return (
+                        <div key={c.id} className="campaign-card" style={{ cursor: 'default' }}>
+                          <div className="campaign-card-header">
+                            <h4 className="campaign-card-name">{c.name}</h4>
+                            <span className="campaign-region-tag">
+                              <MapPin size={11} aria-hidden="true" />
+                              {c.region}
+                            </span>
+                          </div>
+                          <div className="campaign-progress-section">
+                            <div className="progress-labels">
+                              <span><strong>{c.raised.toFixed(2)}</strong> / {c.goal} XLM</span>
+                              <span>{pct.toFixed(0)}%</span>
+                            </div>
+                            <div className="progress-container" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+                              <div className={`progress-bar-fill ${pct >= 100 ? 'progress-complete' : ''}`} style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </section>
 
               {/* REGISTER RECIPIENT */}
               <section className="card">
@@ -573,6 +724,29 @@ export default function App() {
                   </div>
                 ) : (
                   <form onSubmit={handleDisburse} noValidate>
+                    {/* Campaign tag for disbursement */}
+                    {campaigns.length > 0 && (
+                      <div className="campaign-selector-group">
+                        <label className="form-label" htmlFor="disburse-campaign">
+                          <Target size={13} style={{ display: 'inline', verticalAlign: '-2px' }} /> Tag to Campaign (Optional)
+                        </label>
+                        <select
+                          id="disburse-campaign"
+                          className="form-input"
+                          value={disburseCampaignId}
+                          onChange={(e) => setDisburseCampaignId(e.target.value)}
+                          disabled={!!txStage && txStage !== 'Success' && txStage !== 'Failed'}
+                        >
+                          <option value="">— No campaign tag —</option>
+                          {campaigns.map(c => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} — {c.region}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
                     <div className="form-group">
                       <label className="form-label" htmlFor="disburse-recipient">Select Verified Recipient</label>
                       {isLoadingData ? (
@@ -710,6 +884,7 @@ export default function App() {
                 {history.map((h, i) => {
                   const recipientInfo = recipients.find(r => r.recipient === h.recipient)
                   const displayName = recipientInfo ? recipientInfo.verificationId : 'Recipient'
+                  const campaignTag = getDisbursementCampaignTag(h.recipient)
                   return (
                     <a
                       key={i}
@@ -723,6 +898,11 @@ export default function App() {
                         <span className="item-title" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <FileText size={14} style={{ color: 'var(--c-black)' }} aria-hidden="true" />
                           {displayName}
+                          {campaignTag && (
+                            <span className="campaign-tag">
+                              <Target size={9} /> {campaignTag}
+                            </span>
+                          )}
                         </span>
                         <span className="item-subtitle">{h.recipient.slice(0, 10)}...{h.recipient.slice(-10)}</span>
                       </div>
@@ -749,6 +929,14 @@ export default function App() {
         txError={txError}
         txHash={txHash}
         onClose={() => { setTxStage(null); setTxError(null); setTxHash(null) }}
+      />
+
+      {/* CREATE CAMPAIGN MODAL */}
+      <CreateCampaignModal
+        isOpen={showCreateCampaign}
+        onClose={() => { setShowCreateCampaign(false); setLinkedDisaster(null) }}
+        onCreated={handleCampaignCreated}
+        linkedDisaster={linkedDisaster}
       />
 
       {/* FEEDBACK WIDGET */}
