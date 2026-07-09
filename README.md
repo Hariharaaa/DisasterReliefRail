@@ -8,6 +8,12 @@ Disaster Relief Rail is a direct, transparent aid disbursement dApp built on the
 
 ## 📸 Screenshots
 
+### Deployed Contract Address
+![Deployed Contract Address](./Deployed%20contract%20address.png)
+
+### CI/CD Pipeline
+![CI/CD Pipeline](./ci_cd_pipeline.png)
+
 ### Before Connection
 ![Before Connection](./before%20connection.png)
 
